@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Hexagon Village — Walk Around</title>
+<style>
+  :root{
+    --ink:#1b1710;
+    --parchment:#e9dfc7;
+    --accent:#8a5a2b;
+    --accent-light:#c98a4b;
+  }
+  html,body{
+    margin:0; padding:0; overflow:hidden; height:100%; width:100%;
+    background:#0a0f14;
+    font-family:'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+    -webkit-user-select:none; user-select:none;
+    touch-action:none;
+  }
+  #canvas-wrap{ position:fixed; inset:0; }
+  canvas{ display:block; width:100%; height:100%; }
+
+  #loading{
+    position:fixed; inset:0; z-index:50;
+    background:radial-gradient(ellipse at center, #2b2214 0%, #0a0f14 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:var(--parchment);
+    transition:opacity .6s ease;
+  }
+  #loading h1{
+    font-size:1.6rem; letter-spacing:.08em; margin:0 0 .4rem;
+    text-transform:uppercase; color:var(--accent-light);
+  }
+  #loading p{ margin:.2rem 0 1.2rem; opacity:.75; font-size:.85rem; }
+  #barOuter{
+    width:min(320px, 70vw); height:10px; border-radius:6px;
+    background:rgba(255,255,255,.08); overflow:hidden;
+    border:1px solid rgba(255,255,255,.15);
+  }
+  #barInner{
+    height:100%; width:0%;
+    background:linear-gradient(90deg, var(--accent), var(--accent-light));
+    transition:width .15s ease;
+  }
+  #loadPct{ margin-top:.6rem; font-size:.75rem; opacity:.6; letter-spacing:.05em; }
+
+  /* HUD */
+  #hud{
+    position:fixed; top:0; left:0; right:0; z-index:20;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:14px 16px; pointer-events:none;
+  }
+  #title{
+    background:rgba(10,12,16,.55); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.12);
+    color:var(--parchment); padding:8px 14px; border-radius:10px;
+    font-size:.78rem; letter-spacing:.04em; pointer-events:auto;
+  }
+  #title b{ color:var(--accent-light); font-size:.9rem; letter-spacing:.06em; }
+
+  #helpBtn{
+    pointer-events:auto;
+    background:rgba(10,12,16,.55); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.12);
+    color:var(--parchment); width:36px; height:36px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1rem; cursor:pointer;
+  }
+
+  #instructions{
+    position:fixed; inset:0; z-index:40;
+    background:rgba(8,10,14,.72); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--parchment); text-align:center; cursor:pointer;
+    padding:20px;
+  }
+  #instructions.hidden{ display:none; }
+  #instructionsInner{
+    max-width:420px; background:rgba(20,17,12,.9);
+    border:1px solid rgba(255,255,255,.15); border-radius:16px;
+    padding:28px 26px;
+  }
+  #instructionsInner h2{ margin:0 0 10px; color:var(--accent-light); font-size:1.2rem; letter-spacing:.03em; }
+  #instructionsInner p{ font-size:.85rem; line-height:1.5; opacity:.85; margin:.5rem 0; }
+  #instructionsInner .key{
+    display:inline-block; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2);
+    border-radius:5px; padding:1px 7px; font-size:.78rem; margin:0 2px;
+  }
+  #startBtn{
+    margin-top:16px; background:linear-gradient(135deg, var(--accent), var(--accent-light));
+    border:none; color:#fff; padding:11px 26px; border-radius:999px;
+    font-size:.9rem; letter-spacing:.05em; cursor:pointer; font-weight:600;
+  }
+
+  #crosshair{
+    position:fixed; top:50%; left:50%; width:6px; height:6px;
+    transform:translate(-50%,-50%); border-radius:50%;
+    background:rgba(255,255,255,.6); z-index:15; pointer-events:none;
+    box-shadow:0 0 4px rgba(0,0,0,.6);
+  }
+
+  /* Desktop hint bottom */
+  #deskHint{
+    position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+    z-index:20; color:var(--parchment); font-size:.72rem; opacity:.55;
+    background:rgba(10,12,16,.45); padding:6px 14px; border-radius:20px;
+    pointer-events:none; letter-spacing:.03em;
+  }
+
+  /* Mobile joystick */
+  #joyZone{
+    position:fixed; left:0; bottom:0; width:45vw; height:45vh; z-index:25;
+    touch-action:none; display:none;
+  }
+  #joyBase{
+    position:absolute; width:110px; height:110px; border-radius:50%;
+    background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.25);
+    display:none;
+  }
+  #joyStick{
+    position:absolute; width:50px; height:50px; border-radius:50%;
+    background:rgba(255,255,255,.35); border:2px solid rgba(255,255,255,.5);
+    left:30px; top:30px;
+  }
+
+  #lookZone{
+    position:fixed; right:0; bottom:0; width:55vw; height:60vh; z-index:24;
+    touch-action:none; display:none;
+  }
+
+  #jumpBtn{
+    position:fixed; right:26px; bottom:26px; z-index:26;
+    width:70px; height:70px; border-radius:50%;
+    background:rgba(255,255,255,.12); border:2px solid rgba(255,255,255,.3);
+    color:#fff; font-size:.75rem; letter-spacing:.05em;
+    display:none; align-items:center; justify-content:center;
+    touch-action:none;
+  }
+
+  #mobileToggleHint{
+    position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+    z-index:20; color:var(--parchment); font-size:.72rem; opacity:.6;
+    background:rgba(10,12,16,.45); padding:6px 14px; border-radius:20px;
+    pointer-events:none; display:none;
+  }
+
+  @media (pointer:coarse){
+    #deskHint{ display:none; }
+    #joyZone, #joyBase, #lookZone, #jumpBtn, #mobileToggleHint{ display:block; }
+    #jumpBtn{ display:flex; }
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"></div>
+<div id="crosshair"></div>
+
+<div id="loading">
+  <h1>Hexagon Village</h1>
+  <p>Loading the realm…</p>
+  <div id="barOuter"><div id="barInner"></div></div>
+  <div id="loadPct">0%</div>
+</div>
+
+<div id="hud">
+  <div id="title"><b>Hexagon Village</b><br/>KayKit Medieval Pack</div>
+  <div id="helpBtn" title="Controls">?</div>
+</div>
+
+<div id="deskHint">WASD / Arrows to move · Mouse to look · Shift to run · Space to jump · Click to lock mouse</div>
+<div id="mobileToggleHint">Left joystick: move · Right side: drag to look</div>
+
+<div id="instructions">
+  <div id="instructionsInner">
+    <h2>Walk the Village</h2>
+    <p><b>Desktop:</b> Click anywhere to lock your mouse, then use
+      <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>
+      or arrow keys to move, mouse to look around, <span class="key">Shift</span> to run,
+      <span class="key">Space</span> to jump, <span class="key">Esc</span> to release the mouse.</p>
+    <p><b>Mobile:</b> Use the joystick on the bottom-left to move, and drag anywhere on the right side of the screen to look around (360°). Tap the jump button to hop.</p>
+    <button id="startBtn">Enter Village</button>
+  </div>
+</div>
+
+<!-- Mobile controls -->
+<div id="joyZone">
+  <div id="joyBase"><div id="joyStick"></div></div>
+</div>
+<div id="lookZone"></div>
+<div id="jumpBtn">JUMP</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
