@@ -77,7 +77,7 @@
   }
   #instructions.hidden{ display:none; }
   #instructionsInner{
-    max-width:420px; background:rgba(20,17,12,.9);
+    max-width:440px; background:rgba(20,17,12,.9);
     border:1px solid rgba(255,255,255,.15); border-radius:16px;
     padding:28px 26px;
   }
@@ -93,30 +93,32 @@
     font-size:.9rem; letter-spacing:.05em; cursor:pointer; font-weight:600;
   }
 
-  #crosshair{
-    position:fixed; top:50%; left:50%; width:6px; height:6px;
-    transform:translate(-50%,-50%); border-radius:50%;
-    background:rgba(255,255,255,.6); z-index:15; pointer-events:none;
-    box-shadow:0 0 4px rgba(0,0,0,.6);
-  }
-
   /* Desktop hint bottom */
   #deskHint{
     position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
-    z-index:20; color:var(--parchment); font-size:.72rem; opacity:.55;
+    z-index:20; color:var(--parchment); font-size:.72rem; opacity:.6;
     background:rgba(10,12,16,.45); padding:6px 14px; border-radius:20px;
-    pointer-events:none; letter-spacing:.03em;
+    pointer-events:none; letter-spacing:.03em; text-align:center; max-width:90vw;
   }
 
-  /* Joystick — fixed at bottom-left, always available (mouse or touch) */
+  /* Interact prompt */
+  #interactPrompt{
+    position:fixed; top:70px; left:50%; transform:translateX(-50%);
+    z-index:22; color:#fff; font-size:.8rem; letter-spacing:.03em;
+    background:rgba(138,90,43,.85); padding:7px 16px; border-radius:20px;
+    display:none; pointer-events:none;
+  }
+  #interactPrompt.flash{ background:rgba(201,138,75,.95); }
+
+  /* Mobile joystick */
   #joyZone{
     position:fixed; left:0; bottom:0; width:45vw; height:45vh; z-index:25;
-    touch-action:none; display:block; cursor:pointer;
+    touch-action:none; display:none;
   }
   #joyBase{
     position:absolute; width:110px; height:110px; border-radius:50%;
     background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.25);
-    display:block;
+    display:none;
   }
   #joyStick{
     position:absolute; width:50px; height:50px; border-radius:50%;
@@ -129,33 +131,36 @@
     touch-action:none; display:none;
   }
 
-  #jumpBtn{
-    position:fixed; right:26px; bottom:26px; z-index:26;
-    width:70px; height:70px; border-radius:50%;
+  .actionBtn{
+    position:fixed; z-index:26;
+    border-radius:50%;
     background:rgba(255,255,255,.12); border:2px solid rgba(255,255,255,.3);
-    color:#fff; font-size:.75rem; letter-spacing:.05em;
+    color:#fff; font-size:.68rem; letter-spacing:.03em;
     display:none; align-items:center; justify-content:center;
-    touch-action:none;
+    touch-action:none; text-align:center;
   }
+  #jumpBtn{ right:24px; bottom:100px; width:68px; height:68px; }
+  #crouchBtn{ right:104px; bottom:34px; width:58px; height:58px; }
+  #proneBtn{ right:24px; bottom:26px; width:58px; height:58px; }
+  #interactBtn{ right:170px; bottom:60px; width:52px; height:52px; }
 
   #mobileToggleHint{
     position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
-    z-index:20; color:var(--parchment); font-size:.72rem; opacity:.6;
+    z-index:20; color:var(--parchment); font-size:.7rem; opacity:.6;
     background:rgba(10,12,16,.45); padding:6px 14px; border-radius:20px;
-    pointer-events:none; display:none;
+    pointer-events:none; display:none; text-align:center; max-width:90vw;
   }
 
   @media (pointer:coarse){
     #deskHint{ display:none; }
-    #lookZone, #jumpBtn, #mobileToggleHint{ display:block; }
-    #jumpBtn{ display:flex; }
+    #joyZone, #joyBase, #lookZone, #mobileToggleHint{ display:block; }
+    .actionBtn{ display:flex; }
   }
 </style>
 </head>
 <body>
 
 <div id="canvas-wrap"></div>
-<div id="crosshair"></div>
 
 <div id="loading">
   <h1>Hexagon Village</h1>
@@ -169,17 +174,20 @@
   <div id="helpBtn" title="Controls">?</div>
 </div>
 
-<div id="deskHint">WASD / Arrows to move · Mouse to look · Shift to run · Space to jump · Click to lock mouse</div>
-<div id="mobileToggleHint">Left joystick: move · Right side: drag to look</div>
+<div id="interactPrompt"></div>
+
+<div id="deskHint">WASD / Arrows: move · Drag mouse: orbit camera · Shift: run (hold while moving = slide) · Space: jump · C: crouch · Z: prone · E: interact</div>
+<div id="mobileToggleHint">Left joystick: move · Right side: drag to orbit camera</div>
 
 <div id="instructions">
   <div id="instructionsInner">
     <h2>Walk the Village</h2>
-    <p><b>Desktop:</b> Click anywhere to lock your mouse, then use
+    <p><b>Desktop:</b>
       <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>
-      or arrow keys to move, mouse to look around, <span class="key">Shift</span> to run,
-      <span class="key">Space</span> to jump, <span class="key">Esc</span> to release the mouse.</p>
-    <p><b>Mobile:</b> Use the joystick on the bottom-left to move, and drag anywhere on the right side of the screen to look around (360°). Tap the jump button to hop.</p>
+      or arrow keys to move, drag mouse to orbit the camera, <span class="key">Shift</span> to run
+      (tap Shift while moving to slide), <span class="key">Space</span> to jump,
+      <span class="key">C</span> to crouch, <span class="key">Z</span> to go prone, <span class="key">E</span> to interact.</p>
+    <p><b>Mobile:</b> Left joystick to move, drag right side to orbit the camera. Buttons on the right: jump, crouch, prone, interact.</p>
     <button id="startBtn">Enter Village</button>
   </div>
 </div>
@@ -189,7 +197,10 @@
   <div id="joyBase"><div id="joyStick"></div></div>
 </div>
 <div id="lookZone"></div>
-<div id="jumpBtn">JUMP</div>
+<div id="jumpBtn" class="actionBtn">JUMP</div>
+<div id="crouchBtn" class="actionBtn">CROUCH</div>
+<div id="proneBtn" class="actionBtn">PRONE</div>
+<div id="interactBtn" class="actionBtn">E</div>
 
 <script type="importmap">
 {
