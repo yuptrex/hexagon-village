@@ -1,39 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Hexagon Village — Walk Around</title>
-<style>
-  :root{
-    --ink:#1b1710;
-    --parchment:#e9dfc7;
-    --accent:#8a5a2b;
-    --accent-light:#c98a4b;
-  }
-  html,body{
-    margin:0; padding:0; overflow:hidden; height:100%; width:100%;
-    background:#0a0f14;
-    font-family:'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
-    -webkit-user-select:none; user-select:none;
-    touch-action:none;
-  }
-  #canvas-wrap{ position:fixed; inset:0; }
-  canvas{ display:block; width:100%; height:100%; }
-
-  #loading{
-    position:fixed; inset:0; z-index:50;
-    background:radial-gradient(ellipse at center, #2b2214 0%, #0a0f14 100%);
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    color:var(--parchment);
-    transition:opacity .6s ease;
-  }
-  #loading h1{
-    font-size:1.6rem; letter-spacing:.08em; margin:0 0 .4rem;
-    text-transform:uppercase; color:var(--accent-light);
-  }
-  #loading p{ margin:.2rem 0 1.2rem; opacity:.75; font-size:.85rem; }
-  #barOuter{
     width:min(320px, 70vw); height:10px; border-radius:6px;
     background:rgba(255,255,255,.08); overflow:hidden;
     border:1px solid rgba(255,255,255,.15);
