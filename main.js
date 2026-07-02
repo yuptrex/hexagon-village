@@ -161,10 +161,10 @@ const move = { forward: false, backward: false, left: false, right: false, run: 
 const velocity = new THREE.Vector3();
 let canJump = true;
 let verticalVelocity = 0;
-const GRAVITY = 10;
-const JUMP_SPEED = 3.4;
-// Very small character: much lower eye height so the village/buildings tower over you
-const EYE_HEIGHT = 0.55;
+const GRAVITY = 6;
+const JUMP_SPEED = 2.0;
+// Even smaller character: tiny eye height so buildings tower far overhead
+const EYE_HEIGHT = 0.25;
 let onGround = true;
 
 const keyMap = {
@@ -191,96 +191,91 @@ function tryJump() {
   }
 }
 
-// ---------- Mobile joystick ----------
+// ---------- Joystick (fixed at bottom-left corner, swipe to move) ----------
+// Base stays fixed in place; dragging/swiping from anywhere in the zone
+// moves the stick toward that direction: up=forward, right=right, down=back, left=left.
 const joyZone = document.getElementById('joyZone');
 const joyBase = document.getElementById('joyBase');
 const joyStick = document.getElementById('joyStick');
-let joyActive = false;
-let joyVec = { x: 0, y: 0 }; // -1..1
-let joyTouchId = null;
+let joyVec = { x: 0, y: 0 }; // -1..1, y: -1 = up/forward, +1 = down/back
+let joyPointerId = null; // touch identifier or 'mouse'
+const JOY_MAX_R = 45;
 
-function setJoyBase(x, y) {
-  joyBase.style.left = (x - 55) + 'px';
-  joyBase.style.top = (y - 55) + 'px';
+function placeJoyBaseFixed() {
+  // Fixed at bottom-left corner of the joystick zone
+  const pad = 20;
+  joyBase.style.left = pad + 'px';
+  joyBase.style.bottom = pad + 'px';
+  joyBase.style.top = '';
   joyBase.style.display = 'block';
 }
+placeJoyBaseFixed();
+
+function joyCenter() {
+  const r = joyBase.getBoundingClientRect();
+  return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+}
+
+function updateJoyStick(clientX, clientY) {
+  const { cx, cy } = joyCenter();
+  let dx = clientX - cx;
+  let dy = clientY - cy;
+  const dist = Math.min(Math.hypot(dx, dy), JOY_MAX_R);
+  const angle = Math.atan2(dy, dx);
+  const sx = Math.cos(angle) * dist;
+  const sy = Math.sin(angle) * dist;
+  joyStick.style.left = (55 + sx - 25) + 'px';
+  joyStick.style.top = (55 + sy - 25) + 'px';
+  joyVec.x = sx / JOY_MAX_R;   // -1 left .. +1 right
+  joyVec.y = sy / JOY_MAX_R;   // -1 up/forward .. +1 down/back
+}
+
+function resetJoyStick() {
+  joyStick.style.left = '30px';
+  joyStick.style.top = '30px';
+  joyVec.x = 0; joyVec.y = 0;
+}
+resetJoyStick();
 
 joyZone.addEventListener('touchstart', (e) => {
   const t = e.changedTouches[0];
-  joyTouchId = t.identifier;
-  joyActive = true;
-  setJoyBase(t.clientX, t.clientY);
-  joyStick.style.left = '30px';
-  joyStick.style.top = '30px';
+  joyPointerId = t.identifier;
+  updateJoyStick(t.clientX, t.clientY);
   e.preventDefault();
 }, { passive: false });
 
 joyZone.addEventListener('touchmove', (e) => {
   for (const t of e.changedTouches) {
-    if (t.identifier !== joyTouchId) continue;
-    const baseRect = joyBase.getBoundingClientRect();
-    const cx = baseRect.left + 55;
-    const cy = baseRect.top + 55;
-    let dx = t.clientX - cx;
-    let dy = t.clientY - cy;
-    const maxR = 45;
-    const dist = Math.min(Math.hypot(dx, dy), maxR);
-    const angle = Math.atan2(dy, dx);
-    const sx = Math.cos(angle) * dist;
-    const sy = Math.sin(angle) * dist;
-    joyStick.style.left = (30 + sx) + 'px';
-    joyStick.style.top = (30 + sy) + 'px';
-    joyVec.x = sx / maxR;
-    joyVec.y = sy / maxR;
+    if (t.identifier !== joyPointerId) continue;
+    updateJoyStick(t.clientX, t.clientY);
   }
   e.preventDefault();
 }, { passive: false });
 
-function endJoy(e) {
+function endJoyTouch(e) {
   for (const t of e.changedTouches) {
-    if (t.identifier !== joyTouchId) continue;
-    joyActive = false;
-    joyTouchId = null;
-    joyVec.x = 0; joyVec.y = 0;
-    joyBase.style.display = 'none';
+    if (t.identifier !== joyPointerId) continue;
+    joyPointerId = null;
+    resetJoyStick();
   }
 }
-joyZone.addEventListener('touchend', endJoy, { passive: false });
-joyZone.addEventListener('touchcancel', endJoy, { passive: false });
+joyZone.addEventListener('touchend', endJoyTouch, { passive: false });
+joyZone.addEventListener('touchcancel', endJoyTouch, { passive: false });
 
 // Mouse support so the joystick also works with a mouse/trackpad, not just touch
-let joyMouseDown = false;
 joyZone.addEventListener('mousedown', (e) => {
-  joyMouseDown = true;
-  joyActive = true;
-  setJoyBase(e.clientX, e.clientY);
-  joyStick.style.left = '30px';
-  joyStick.style.top = '30px';
+  joyPointerId = 'mouse';
+  updateJoyStick(e.clientX, e.clientY);
   e.preventDefault();
 });
 window.addEventListener('mousemove', (e) => {
-  if (!joyMouseDown) return;
-  const baseRect = joyBase.getBoundingClientRect();
-  const cx = baseRect.left + 55;
-  const cy = baseRect.top + 55;
-  let dx = e.clientX - cx;
-  let dy = e.clientY - cy;
-  const maxR = 45;
-  const dist = Math.min(Math.hypot(dx, dy), maxR);
-  const angle = Math.atan2(dy, dx);
-  const sx = Math.cos(angle) * dist;
-  const sy = Math.sin(angle) * dist;
-  joyStick.style.left = (30 + sx) + 'px';
-  joyStick.style.top = (30 + sy) + 'px';
-  joyVec.x = sx / maxR;
-  joyVec.y = sy / maxR;
+  if (joyPointerId !== 'mouse') return;
+  updateJoyStick(e.clientX, e.clientY);
 });
 window.addEventListener('mouseup', () => {
-  if (!joyMouseDown) return;
-  joyMouseDown = false;
-  joyActive = false;
-  joyVec.x = 0; joyVec.y = 0;
-  joyBase.style.display = 'none';
+  if (joyPointerId !== 'mouse') return;
+  joyPointerId = null;
+  resetJoyStick();
 });
 
 // ---------- Mobile look (drag on right side = 360 view) ----------
@@ -338,7 +333,7 @@ function resolveCollisions(pos) {
     const dx = pos.x - c.x;
     const dz = pos.z - c.z;
     const dist = Math.hypot(dx, dz);
-    const minDist = c.r + 0.14; // player radius buffer (scaled down for small character)
+    const minDist = c.r + 0.06; // player radius buffer (scaled down for tiny character)
     if (dist < minDist && dist > 0.0001) {
       const push = (minDist - dist);
       pos.x += (dx / dist) * push;
@@ -356,7 +351,7 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  const speed = (move.run ? 4.2 : 2.2);
+  const speed = (move.run ? 2.6 : 1.3);
 
   // Combine keyboard (WASD/arrows) and joystick input, whichever is active
   let inputX = (move.right ? 1 : 0) - (move.left ? 1 : 0);
