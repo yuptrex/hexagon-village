@@ -6,9 +6,10 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 const wrap = document.getElementById('canvas-wrap');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9fd6ec);
-scene.fog = new THREE.Fog(0x9fd6ec, 25, 70);
+// Fog pushed way out so distant buildings/corners stay crisp instead of fading into haze
+scene.fog = new THREE.Fog(0x9fd6ec, 120, 260);
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 200);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 500);
 camera.position.set(0, 1.7, 8);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -160,9 +161,10 @@ const move = { forward: false, backward: false, left: false, right: false, run: 
 const velocity = new THREE.Vector3();
 let canJump = true;
 let verticalVelocity = 0;
-const GRAVITY = 18;
-const JUMP_SPEED = 6.2;
-const EYE_HEIGHT = 1.7;
+const GRAVITY = 10;
+const JUMP_SPEED = 3.4;
+// Very small character: much lower eye height so the village/buildings tower over you
+const EYE_HEIGHT = 0.55;
 let onGround = true;
 
 const keyMap = {
@@ -246,6 +248,41 @@ function endJoy(e) {
 joyZone.addEventListener('touchend', endJoy, { passive: false });
 joyZone.addEventListener('touchcancel', endJoy, { passive: false });
 
+// Mouse support so the joystick also works with a mouse/trackpad, not just touch
+let joyMouseDown = false;
+joyZone.addEventListener('mousedown', (e) => {
+  joyMouseDown = true;
+  joyActive = true;
+  setJoyBase(e.clientX, e.clientY);
+  joyStick.style.left = '30px';
+  joyStick.style.top = '30px';
+  e.preventDefault();
+});
+window.addEventListener('mousemove', (e) => {
+  if (!joyMouseDown) return;
+  const baseRect = joyBase.getBoundingClientRect();
+  const cx = baseRect.left + 55;
+  const cy = baseRect.top + 55;
+  let dx = e.clientX - cx;
+  let dy = e.clientY - cy;
+  const maxR = 45;
+  const dist = Math.min(Math.hypot(dx, dy), maxR);
+  const angle = Math.atan2(dy, dx);
+  const sx = Math.cos(angle) * dist;
+  const sy = Math.sin(angle) * dist;
+  joyStick.style.left = (30 + sx) + 'px';
+  joyStick.style.top = (30 + sy) + 'px';
+  joyVec.x = sx / maxR;
+  joyVec.y = sy / maxR;
+});
+window.addEventListener('mouseup', () => {
+  if (!joyMouseDown) return;
+  joyMouseDown = false;
+  joyActive = false;
+  joyVec.x = 0; joyVec.y = 0;
+  joyBase.style.display = 'none';
+});
+
 // ---------- Mobile look (drag on right side = 360 view) ----------
 const lookZone = document.getElementById('lookZone');
 let lookTouchId = null;
@@ -301,7 +338,7 @@ function resolveCollisions(pos) {
     const dx = pos.x - c.x;
     const dz = pos.z - c.z;
     const dist = Math.hypot(dx, dz);
-    const minDist = c.r + 0.35; // player radius buffer
+    const minDist = c.r + 0.14; // player radius buffer (scaled down for small character)
     if (dist < minDist && dist > 0.0001) {
       const push = (minDist - dist);
       pos.x += (dx / dist) * push;
@@ -319,16 +356,14 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  const speed = (move.run ? 6.5 : 3.4);
+  const speed = (move.run ? 4.2 : 2.2);
 
-  // Determine movement input: keyboard for desktop, joystick for mobile
-  let inputX = 0, inputZ = 0;
-  if (isTouch) {
+  // Combine keyboard (WASD/arrows) and joystick input, whichever is active
+  let inputX = (move.right ? 1 : 0) - (move.left ? 1 : 0);
+  let inputZ = (move.forward ? 1 : 0) - (move.backward ? 1 : 0);
+  if (joyVec.x !== 0 || joyVec.y !== 0) {
     inputX = joyVec.x;
     inputZ = joyVec.y; // forward is -y on stick
-  } else {
-    inputZ = (move.forward ? 1 : 0) - (move.backward ? 1 : 0);
-    inputX = (move.right ? 1 : 0) - (move.left ? 1 : 0);
   }
 
   camera.getWorldDirection(forwardVec);
