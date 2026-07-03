@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Hexagon Village — Infinite Realm</title>
+<style>
+  :root{
+    --ink:#1b1710;
+    --parchment:#e9dfc7;
+    --accent:#8a5a2b;
+    --accent-light:#c98a4b;
+  }
+  html,body{
+    margin:0; padding:0; overflow:hidden; height:100%; width:100%;
+    background:#0a0f14;
+    font-family:'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+    -webkit-user-select:none; user-select:none;
+    touch-action:none;
+  }
+  #canvas-wrap{ position:fixed; inset:0; }
+  canvas{ display:block; width:100%; height:100%; }
+
+  #loading{
+    position:fixed; inset:0; z-index:50;
+    background:radial-gradient(ellipse at center, #2b2214 0%, #0a0f14 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:var(--parchment);
+    transition:opacity .6s ease;
+  }
+  #loading h1{
+    font-size:1.6rem; letter-spacing:.08em; margin:0 0 .4rem;
+    text-transform:uppercase; color:var(--accent-light);
+  }
+  #loading p{ margin:.2rem 0 1.2rem; opacity:.75; font-size:.85rem; }
+  #barOuter{
+    width:min(320px, 70vw); height:10px; border-radius:6px;
+    background:rgba(255,255,255,.08); overflow:hidden;
+    border:1px solid rgba(255,255,255,.15);
+  }
+  #barInner{
+    height:100%; width:0%;
+    background:linear-gradient(90deg, var(--accent), var(--accent-light));
+    transition:width .15s ease;
+  }
+  #loadPct{ margin-top:.6rem; font-size:.75rem; opacity:.6; letter-spacing:.05em; }
+
+  /* HUD */
+  #hud{
+    position:fixed; top:0; left:0; right:0; z-index:20;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:14px 16px; pointer-events:none;
+  }
+  #title{
+    background:rgba(10,12,16,.55); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.12);
+    color:var(--parchment); padding:8px 14px; border-radius:10px;
+    font-size:.78rem; letter-spacing:.04em; pointer-events:auto;
+  }
+  #title b{ color:var(--accent-light); font-size:.9rem; letter-spacing:.06em; }
+
+  #helpBtn{
+    pointer-events:auto;
+    background:rgba(10,12,16,.55); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.12);
+    color:var(--parchment); width:36px; height:36px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1rem; cursor:pointer;
+  }
+
+  #instructions{
+    position:fixed; inset:0; z-index:40;
+    background:rgba(8,10,14,.72); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--parchment); text-align:center; cursor:pointer;
+    padding:20px;
+  }
+  #instructions.hidden{ display:none; }
+  #instructionsInner{
+    max-width:440px; background:rgba(20,17,12,.9);
+    border:1px solid rgba(255,255,255,.15); border-radius:16px;
+    padding:28px 26px; cursor:default;
+  }
+  #instructionsInner h2{ margin:0 0 10px; color:var(--accent-light); font-size:1.2rem; letter-spacing:.03em; }
+  #instructionsInner p{ font-size:.85rem; line-height:1.5; opacity:.85; margin:.5rem 0; }
+  #instructionsInner .key{
+    display:inline-block; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2);
+    border-radius:5px; padding:1px 7px; font-size:.78rem; margin:0 2px;
+  }
+  #startBtn{
+    margin-top:16px; background:linear-gradient(135deg, var(--accent), var(--accent-light));
+    border:none; color:#fff; padding:11px 26px; border-radius:999px;
+    font-size:.9rem; letter-spacing:.05em; cursor:pointer; font-weight:600;
+  }
+
+  /* Desktop hint bottom */
+  #deskHint{
+    position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+    z-index:20; color:var(--parchment); font-size:.68rem; opacity:.55;
+    background:rgba(10,12,16,.45); padding:6px 14px; border-radius:20px;
+    pointer-events:none; letter-spacing:.02em; text-align:center; max-width:90vw;
+  }
+
+  /* Joystick */
+  #joyZone{
+    position:fixed; left:0; bottom:0; width:45vw; height:45vh; z-index:25;
+    touch-action:none; display:block; cursor:pointer;
+  }
+  #joyBase{
+    position:absolute; width:110px; height:110px; border-radius:50%;
+    background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.25);
+    display:block;
+  }
+  #joyStick{
+    position:absolute; width:50px; height:50px; border-radius:50%;
+    background:rgba(255,255,255,.35); border:2px solid rgba(255,255,255,.5);
+    left:30px; top:30px;
+  }
+
+  #lookZone{
+    position:fixed; right:0; bottom:0; width:55vw; height:60vh; z-index:24;
+    touch-action:none; display:none;
+  }
+
+  /* ================= Gaming-style HUD ================= */
+  #combatCluster{
+    position:fixed; right:16px; bottom:16px; z-index:26;
+    width:196px; height:170px;
+    pointer-events:none;
+  }
+  .ringBtn{
+    pointer-events:auto;
+    position:absolute; border-radius:50%;
+    background:rgba(20,16,10,.42); backdrop-filter:blur(3px);
+    border:2px solid rgba(255,255,255,.3);
+    color:#fff; font-weight:800; letter-spacing:.03em;
+    display:flex; align-items:center; justify-content:center;
+    touch-action:none; text-align:center; line-height:1.15; user-select:none;
+  }
+  #attackBtn{
+    width:92px; height:92px; right:0; bottom:0; font-size:.8rem;
+    background:rgba(138,90,43,.5); border:3px solid var(--accent-light);
+    box-shadow:0 0 0 4px rgba(0,0,0,.15);
+  }
+  #attackBtn.active{ background:rgba(200,138,75,.85); }
+  #jumpBtn{ width:60px; height:60px; right:118px; bottom:78px; font-size:.62rem; }
+  #weaponBtn{
+    width:58px; height:58px; right:6px; bottom:120px; font-size:.6rem;
+    background:rgba(60,80,110,.5); border-color:#9cc4ea; flex-direction:column; gap:2px;
+  }
+  #weaponBtn .wIcon{ font-size:1rem; line-height:1; }
+  .ringBtn.active{ background:rgba(200,138,75,.75); border-color:var(--accent-light); }
+
+  #moreToggle{
+    position:fixed; right:16px; bottom:196px; z-index:27;
+    width:46px; height:30px; border-radius:15px;
+    background:rgba(20,16,10,.55); border:1px solid rgba(255,255,255,.3);
+    color:var(--parchment); font-size:.65rem; display:flex; align-items:center; justify-content:center;
+    pointer-events:auto; touch-action:none; user-select:none;
+  }
+  #moreDrawer{
+    position:fixed; right:16px; bottom:236px; z-index:26;
+    display:flex; flex-direction:column-reverse; gap:8px;
+    pointer-events:none;
+    max-height:0; overflow:hidden; opacity:0; transform:translateY(8px);
+    transition:max-height .25s ease, opacity .2s ease, transform .25s ease;
+  }
+  #moreDrawer.open{ max-height:420px; opacity:1; transform:translateY(0); pointer-events:auto; }
+  .drawerRow{ display:flex; gap:8px; justify-content:flex-end; }
+  .actBtn{
+    pointer-events:auto;
+    width:56px; height:56px; border-radius:50%;
+    background:rgba(255,255,255,.12); border:2px solid rgba(255,255,255,.3);
+    color:#fff; font-size:.6rem; font-weight:700; letter-spacing:.02em;
+    display:flex; align-items:center; justify-content:center;
+    touch-action:none; text-align:center; line-height:1.1; user-select:none;
+  }
+  .actBtn.active{ background:rgba(200,138,75,.55); border-color:var(--accent-light); }
+  #flyBtn.active{ background:rgba(90,170,255,.55); border-color:#8fd0ff; }
+
+  @media (pointer:coarse){
+    #deskHint{ display:none; }
+    #lookZone{ display:block; }
+  }
+
+  #weaponHud{
+    position:fixed; left:16px; top:60px; z-index:20;
+    background:rgba(10,12,16,.5); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.14); border-radius:10px;
+    padding:7px 12px; color:var(--parchment); font-size:.7rem; letter-spacing:.03em;
+    pointer-events:none; display:block;
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"></div>
+
+<div id="loading">
+  <h1>Hexagon Village</h1>
+  <p>Loading the realm…</p>
+  <div id="barOuter"><div id="barInner"></div></div>
+  <div id="loadPct">0%</div>
+</div>
+
+<div id="hud">
+  <div id="title"><b>Hexagon Village</b><br/>Infinite World · Sword, Bow &amp; Axe · Third Person</div>
+  <div id="helpBtn" title="Controls">?</div>
+</div>
+
+<div id="deskHint">WASD/Arrows move · Shift run · Space jump · C crouch · Z prone · X slide · V fly · Q switch weapon · Drag mouse to orbit camera · Click or E to attack</div>
+
+<div id="instructions">
+  <div id="instructionsInner">
+    <h2>Walk the Village — Third Person</h2>
+    <p><b>Desktop:</b>
+      <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>
+      to move, <span class="key">Shift</span> to run, <span class="key">Space</span> to jump,
+      <span class="key">C</span> to crouch, <span class="key">Z</span> to go prone,
+      <span class="key">X</span> to slide. Drag anywhere with the mouse to orbit the camera around your knight.</p>
+    <p><b>Fly mode:</b> Press <span class="key">V</span> (or tap <span class="key">FLY</span>) to toggle free flight,
+      Minecraft creative-style. While flying: move with <span class="key">WASD</span>, look up/down with the
+      camera to aim your flight path, <span class="key">Space</span> to rise, <span class="key">C</span> to
+      descend, and <span class="key">Shift</span> for a speed boost. Press <span class="key">V</span> again to
+      land and gravity takes back over.</p>
+    <p><b>Mobile:</b> Left joystick to move, drag the right side of the screen to orbit the camera. The bottom-right
+      ring has JUMP, WEAPON-switch and ATTACK. Tap <span class="key">MORE</span> above it for Run, Fly, Crouch,
+      Prone, Slide and Fly-Down.</p>
+    <p><b>Combat:</b> Cycle between <b>Sword &amp; Shield</b>, <b>Bow</b> and <b>Axe &amp; Shield</b> with
+      <span class="key">WEAPON</span> (or <span class="key">Q</span> on desktop). Tap
+      <span class="key">ATTACK</span> (click / <span class="key">E</span>) to swing your melee weapon or fire an
+      arrow. Landing hits on the wandering barbarians and rogues staggers and eventually defeats them — they
+      respawn back home after a short while.</p>
+    <p><b>Infinite world:</b> Both the grass hex-field <i>and</i> the village itself keep expanding forever as you
+      walk — new homes, towers, wells, trees and rocks generate procedurally around you in every direction.</p>
+    <p style="opacity:.65; font-size:.75rem;">Note: this KayKit Adventurers pack only ships Idle/Walk/Run/Jump clips — crouch, prone and slide are built as a lean-and-lower pose blended on top of those animations, not native mocap clips.</p>
+    <button id="startBtn">Enter Village</button>
+  </div>
+</div>
+
+<!-- Mobile / universal controls -->
+<div id="joyZone">
+  <div id="joyBase"><div id="joyStick"></div></div>
+</div>
+<div id="lookZone"></div>
+
+<!-- Collapsed secondary actions: tap MORE to reveal, keeps the screen clean -->
+<div id="moreToggle" title="More actions">MORE ▲</div>
+<div id="moreDrawer">
+  <div class="drawerRow">
+    <div class="actBtn" id="proneBtn">PRONE</div>
+    <div class="actBtn" id="crouchBtn">CROUCH</div>
+  </div>
+  <div class="drawerRow">
+    <div class="actBtn" id="slideBtn">SLIDE</div>
+    <div class="actBtn" id="runBtn">RUN</div>
+  </div>
+  <div class="drawerRow">
+    <div class="actBtn" id="flyDownBtn">DOWN</div>
+    <div class="actBtn" id="flyBtn">FLY</div>
+  </div>
+</div>
+
+<!-- Primary combat ring: JUMP + WEAPON around a big central ATTACK, fixed
+     offsets guarantee none of the three circles ever overlap. -->
+<div id="combatCluster">
+  <div class="ringBtn" id="jumpBtn">JUMP<br/>UP</div>
+  <div class="ringBtn" id="weaponBtn" title="Switch weapon (Q)"><span class="wIcon">⚔️</span>WEAPON</div>
+  <div class="ringBtn" id="attackBtn" title="Attack (E)">ATTACK</div>
+</div>
+
+<div id="weaponHud">Weapon: <b id="weaponLabel">SWORD &amp; SHIELD</b> · <span style="opacity:.7">Q to switch</span></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
